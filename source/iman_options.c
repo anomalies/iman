@@ -23,8 +23,8 @@ static int iman_option_english_handler(int right_args, char ***pargv, struct ima
 static const char * iman_default_architecture_name = "intel";
 
 static const struct iman_option_definition iman_command_line_options[] = {
-    { "-arch", "-a", "-arch, -a <architecture>: Sets the target architecture", &iman_option_arch_handler },
-    { "-english", "-e", "-english, -e: Describes the instruction in plain English", &iman_option_english_handler },
+    { "--arch",    "-a", "-arch, -a <architecture>: Sets the target architecture",   &iman_option_arch_handler      },
+    { "--english", "-e", "-english, -e: Describes the instruction in plain English", &iman_option_english_handler   },
 
     { NULL, NULL, NULL, NULL }
 };
