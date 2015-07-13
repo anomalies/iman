@@ -5,6 +5,7 @@
 
 #include <stdio.h>
 #include "iman.h"
+#include "iman_options.h"
 
 struct iman_option_definition {
     const char *command;
@@ -52,7 +53,7 @@ int iman_parse_arguments(int argc, char **argv, struct iman_options *options)
     char **arguments_end = &argv[argc];
     
     if (argc <= 1) {
-        return 0;
+        return IMAN_FALSE;
     }
     
     /* Skip the binary path argument */
@@ -64,7 +65,7 @@ int iman_parse_arguments(int argc, char **argv, struct iman_options *options)
         /* Process as a command line option */
         if (*argument == '-') {
             if (iman_process_argument((int)(arguments_end - argv) - 1, &argv, options) == 0) {
-                return 0;
+                return IMAN_FALSE;
             }
             
         } else {
@@ -72,7 +73,7 @@ int iman_parse_arguments(int argc, char **argv, struct iman_options *options)
         }
     }
     
-    return 0;
+    return IMAN_FALSE;
 }
 
 static int iman_process_argument(int right_args, char ***pargv, struct iman_options *options) 
@@ -87,7 +88,7 @@ static int iman_process_argument(int right_args, char ***pargv, struct iman_opti
     }
     
     printf("Unrecognised option %s\n", argument);
-    return 0;
+    return IMAN_FALSE;
 }
 
 static int iman_process_input(int right_args, char **argv, struct iman_options *options)
@@ -95,7 +96,7 @@ static int iman_process_input(int right_args, char **argv, struct iman_options *
     options->input_body.count = right_args;
     options->input_body.args = argv;
     
-    return right_args;
+    return right_args > 0 ? IMAN_TRUE : IMAN_FALSE;
 }
 
 static int iman_option_arch_handler(int right_args, char ***pargv, struct iman_options *options) 
@@ -105,13 +106,13 @@ static int iman_option_arch_handler(int right_args, char ***pargv, struct iman_o
     if (right_args < 1) {
         printf("%s expects an architecture name.\n", *argv);
         
-        return 0;
+        return IMAN_FALSE;
     }
     
     options->architecture = argv[1];
     
     *pargv = &argv[2];
-    return 1;
+    return IMAN_TRUE;
 }
 
 static int iman_option_english_handler(int right_args, char ***pargv, struct iman_options *options)
@@ -121,5 +122,5 @@ static int iman_option_english_handler(int right_args, char ***pargv, struct ima
     options->mode = IMAN_OUTPUT_MODE_TO_ENGLISH;
     
     *pargv = *pargv + 1;
-    return 1;
+    return IMAN_TRUE;
 }
