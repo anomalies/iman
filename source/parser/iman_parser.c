@@ -46,10 +46,32 @@ static char line_buffer[IMAN_PARSER_BUFFER_SIZE];
 static int iman_parser_consume_block(struct iman_parser_state *state);
 static int iman_parser_read_line(struct iman_parser_state *state);
 static int iman_parser_consume_term_declaration(struct iman_parser_state *state);
-static int iman_parse_expect_identifier(struct iman_parser_state *state, char **identifier);
-static int iman_parse_accept_syntax(struct iman_parser_state *state, char syntax);
+static int iman_parser_expect_identifier(struct iman_parser_state *state, char **identifier);
+static int iman_parser_accept_syntax(struct iman_parser_state *state, char syntax);
 
 static void iman_parse_reference_add_name(struct iman_reference_source_definition *definition, char *name);
+static int iman_parser_is_eol(struct iman_parser_state *state);
+
+static int iman_field_forms_handler(struct iman_parser_state *state);
+static int iman_field_description_handler(struct iman_parser_state *state);
+static int iman_field_exceptions_handler(struct iman_parser_state *state);
+static int iman_field_flags_handler(struct iman_parser_state *state);
+static int iman_field_operation_handler(struct iman_parser_state *state);
+static int iman_field_meta_handler(struct iman_parser_state *state);
+
+struct iman_major_field_handler {
+    const char * name;
+    
+    int (*handle)(struct iman_parser_state *state);
+} major_field_handlers[] = {
+    { "forms",       &iman_field_forms_handler       },
+    { "description", &iman_field_description_handler },
+    { "exceptions",  &iman_field_exceptions_handler  },
+    { "flags",       &iman_field_flags_handler       },
+    { "operation",   &iman_field_operation_handler   },
+    { "meta",        &iman_field_meta_handler        },
+    { NULL, NULL                                     }
+};
 
 int iman_parse_reference_source(const struct iman_parser_options *options, struct iman_reference_source *refsource) {
     struct iman_parser_state parser_state;
@@ -112,6 +134,8 @@ static int iman_parser_consume_block(struct iman_parser_state *state) {
                         state->position.line,
                         state->position.column + 1
                 );
+                
+                state->status = IMAN_PARSER_STATUS_ERROR;
             }
             
             return IMAN_FALSE;
@@ -120,6 +144,41 @@ static int iman_parser_consume_block(struct iman_parser_state *state) {
     } while(state->position.tab_depth == 0);
     
     /* TODO: Parse the block */
+    
+    do {
+        char * field_identifier = NULL;
+        
+        if (iman_parser_expect_identifier(state, &field_identifier) != IMAN_TRUE) {
+            fprintf(stderr, "Error (L%u:C%u): expected a block header; e.g. 'forms' or 'definition'\n",
+                    state->position.line,
+                    state->position.column + 1
+            );
+            
+            state->status = IMAN_PARSER_STATUS_ERROR;
+            return IMAN_FALSE;
+        }
+        
+        if (iman_parser_is_eol(state) == IMAN_FALSE) {
+            fprintf(stderr, "Error (L%u:C%u): expected a block header; e.g. 'forms' or 'definition' followed immediately by a new-line\n",
+                    state->position.line,
+                    state->position.column + 1
+            );
+            
+            state->status = IMAN_PARSER_STATUS_ERROR;
+            return IMAN_FALSE;
+        }
+        
+        /* TODO: parse field's contents */
+        
+        fprintf(state->options->output, "(L%u:C%u): Reached block field %s\n",
+                state->position.line,
+                state->position.column + 1,
+                field_identifier);
+        
+        
+        state->status = IMAN_PARSER_STATUS_ERROR;
+        return IMAN_FALSE;
+    } while(state->position.tab_depth == 1);
     
     return IMAN_TRUE;
 }
@@ -142,14 +201,14 @@ static int iman_parser_read_line(struct iman_parser_state *state) {
     
     state->position.tab_depth = tabs;
     state->position.column = tabs;
-    state->current_line = &line_buffer[tabs];
+    state->current_line = line_buffer;
     
     /* Delete the trailing new-line */
     for (length = tabs; line_buffer[length] != '\0'; ++length) {
         if (line_buffer[length] == '\n') {
             line_buffer[length] = '\0';
             
-            state->line_length = length + tabs;
+            state->line_length = length;
             return IMAN_TRUE;
         }
     }
@@ -183,7 +242,7 @@ static int iman_parser_consume_term_declaration(struct iman_parser_state *state)
     for(;;) {
         char * identifier = NULL;
         
-        if (iman_parse_expect_identifier(state, &identifier) != IMAN_TRUE) {
+        if (iman_parser_expect_identifier(state, &identifier) != IMAN_TRUE) {
             fprintf(stderr, "Error (L%u: C%u): expected a valid definition name.\n",
                 state->position.line,
                 state->position.column + 1
@@ -195,11 +254,11 @@ static int iman_parser_consume_term_declaration(struct iman_parser_state *state)
         
         iman_parse_reference_add_name(state->active_definition, identifier);
         
-        if (iman_parse_accept_syntax(state, '/') == IMAN_TRUE) {
+        if (iman_parser_accept_syntax(state, '/') == IMAN_TRUE) {
             /* Definition alias */
             
             continue;
-        } else if (iman_parse_accept_syntax(state, '=') == IMAN_TRUE) {
+        } else if (iman_parser_accept_syntax(state, '=') == IMAN_TRUE) {
             /* Assign the title */
             
             break;
@@ -225,7 +284,7 @@ static int iman_parser_consume_term_declaration(struct iman_parser_state *state)
     return IMAN_TRUE;
 }
 
-static int iman_parse_expect_identifier(struct iman_parser_state *state, char **identifier) {
+static int iman_parser_expect_identifier(struct iman_parser_state *state, char **identifier) {
     unsigned int length, start_column = state->position.column;
     char * ident_buffer;
     
@@ -254,7 +313,7 @@ static int iman_parse_expect_identifier(struct iman_parser_state *state, char **
     return IMAN_TRUE;
 }
 
-static int iman_parse_accept_syntax(struct iman_parser_state *state, char syntax) {
+static int iman_parser_accept_syntax(struct iman_parser_state *state, char syntax) {
     while(state->current_line[state->position.column] != '\0') {
         if (state->current_line[state->position.column] == ' ') {
             state->position.column++;
@@ -301,4 +360,38 @@ static void iman_parse_reference_add_name(struct iman_reference_source_definitio
     cur_name->name_count = new_count;
     cur_name->names = new_array;
     return;
+}
+
+static int iman_parser_is_eol(struct iman_parser_state *state) {
+    return state->line_length > state->position.column ? IMAN_FALSE : IMAN_TRUE;
+}
+
+static int iman_field_forms_handler(struct iman_parser_state *state) {
+    IMAN_UNUSED(state);
+    return IMAN_FALSE;
+}
+
+static int iman_field_description_handler(struct iman_parser_state *state) {
+    IMAN_UNUSED(state);
+    return IMAN_FALSE;
+}
+
+static int iman_field_exceptions_handler(struct iman_parser_state *state) {
+    IMAN_UNUSED(state);
+    return IMAN_FALSE;
+}
+
+static int iman_field_flags_handler(struct iman_parser_state *state) {
+    IMAN_UNUSED(state);
+    return IMAN_FALSE;
+}
+
+static int iman_field_operation_handler(struct iman_parser_state *state) {
+    IMAN_UNUSED(state);
+    return IMAN_FALSE;
+}
+
+static int iman_field_meta_handler(struct iman_parser_state *state) {
+    IMAN_UNUSED(state);
+    return IMAN_FALSE;
 }
