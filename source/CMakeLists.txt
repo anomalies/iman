@@ -16,3 +16,5 @@ add_executable(iman
 )
 
 install(TARGETS iman RUNTIME DESTINATION bin)
+
+add_subdirectory(tools)

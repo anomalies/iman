@@ -236,7 +236,6 @@ static int iman_parser_handle_description(struct iman_parser *parser, unsigned i
         
         printf("Description line (L%u: C%u): %s\n", parser->lexer.pos.line, parser->lexer.pos.column + 1, line);
         
-        /* The additional two bytes are for the newline and null terminator */
         if ((parser->block.desc.offset + line_length + 1) > parser->block.desc.size) {
             unsigned int new_size = parser->block.desc.size * 2;
             char *new_block = malloc(new_size);
