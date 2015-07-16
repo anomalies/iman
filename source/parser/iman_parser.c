@@ -4,394 +4,341 @@
  */
 
 #include "../iman.h"
+#include "iman_lexer.h"
 #include "iman_parser.h"
 
-#define IMAN_PARSER_BUFFER_SIZE 4096
-#define IMAN_REFERENCE_DEFAULT_NAME_SIZE 4
+#define IMAN_REFERENCE_DESC_BASE_SIZE 2048
 
-enum iman_parser_status {
-    IMAN_PARSER_STATUS_SUCCESS = 0,
-    IMAN_PARSER_STATUS_ERROR
+struct iman_parser_field_handler {
+    const char *name;
+    
+    int (*parse)(struct iman_parser *parser, unsigned int depth);
 };
 
-struct iman_parser_state {
-    const struct iman_parser_options *options;
-    struct iman_reference_source *refsource;
+static int iman_parser_read_term(struct iman_parser *parser);
+static int iman_parser_read_field(struct iman_parser *parser, unsigned int depth);
+
+static int iman_parser_handle_forms(struct iman_parser *parser, unsigned int depth);
+static int iman_parser_handle_description(struct iman_parser *parser, unsigned int depth);
+static int iman_parser_handle_exceptions(struct iman_parser *parser, unsigned int depth);
+static int iman_parser_handle_flags(struct iman_parser *parser, unsigned int depth);
+static int iman_parser_handle_operation(struct iman_parser *parser, unsigned int depth);
+static int iman_parser_handle_meta(struct iman_parser *parser, unsigned int depth);
+
+static const struct iman_parser_field_handler iman_major_field_handler_table[] = {
+    { "forms",       &iman_parser_handle_forms       },
+    { "description", &iman_parser_handle_description },
+    { "exceptions",  &iman_parser_handle_exceptions  },
+    { "flags",       &iman_parser_handle_flags       },
+    { "operation",   &iman_parser_handle_operation   },
+    { "meta",        &iman_parser_handle_meta        },
     
-    struct {
-        unsigned int line;
-        unsigned int column;
-        unsigned int tab_depth;
-    } position;
-    
-    char * current_line;
-    unsigned int line_length;
-    
-    enum iman_parser_status status;
-    
-    struct iman_reference_source_definition * active_definition;
+    { NULL, NULL }
 };
 
-static char line_buffer[IMAN_PARSER_BUFFER_SIZE];
-
-/*
- * Basic format is:
- * <block start>
- * \tinner
- * \t\tinner child
- * 
- * <next block start>
- */
-
-static int iman_parser_consume_block(struct iman_parser_state *state);
-static int iman_parser_read_line(struct iman_parser_state *state);
-static int iman_parser_consume_term_declaration(struct iman_parser_state *state);
-static int iman_parser_expect_identifier(struct iman_parser_state *state, char **identifier);
-static int iman_parser_accept_syntax(struct iman_parser_state *state, char syntax);
-
-static void iman_parse_reference_add_name(struct iman_reference_source_definition *definition, char *name);
-static int iman_parser_is_eol(struct iman_parser_state *state);
-
-static int iman_field_forms_handler(struct iman_parser_state *state);
-static int iman_field_description_handler(struct iman_parser_state *state);
-static int iman_field_exceptions_handler(struct iman_parser_state *state);
-static int iman_field_flags_handler(struct iman_parser_state *state);
-static int iman_field_operation_handler(struct iman_parser_state *state);
-static int iman_field_meta_handler(struct iman_parser_state *state);
-
-struct iman_major_field_handler {
-    const char * name;
-    
-    int (*handle)(struct iman_parser_state *state);
-} major_field_handlers[] = {
-    { "forms",       &iman_field_forms_handler       },
-    { "description", &iman_field_description_handler },
-    { "exceptions",  &iman_field_exceptions_handler  },
-    { "flags",       &iman_field_flags_handler       },
-    { "operation",   &iman_field_operation_handler   },
-    { "meta",        &iman_field_meta_handler        },
-    { NULL, NULL                                     }
-};
-
-int iman_parse_reference_source(const struct iman_parser_options *options, struct iman_reference_source *refsource) {
-    struct iman_parser_state parser_state;
-    
-    parser_state.options = options;
-    parser_state.refsource = refsource;
-    
-    parser_state.position.line = 0;
-    parser_state.position.column = 0;
-    
-    parser_state.status = IMAN_PARSER_STATUS_SUCCESS;
-    
-    refsource->head = NULL;
-    refsource->tail = &refsource->head;
-    
-    while(iman_parser_consume_block(&parser_state) != IMAN_FALSE)
-        ;
-    
-    return parser_state.status == IMAN_PARSER_STATUS_SUCCESS ? IMAN_TRUE : IMAN_FALSE;
-}
-
-int iman_reference_source_free(struct iman_reference_source *refsource) {
-    IMAN_UNUSED(refsource);
-    return IMAN_TRUE;
-}
-
-static int iman_parser_consume_block(struct iman_parser_state *state) {    
-    struct iman_reference_source_definition * new_definition;
-    
-    if (iman_parser_read_line(state) != IMAN_TRUE)
-        return IMAN_FALSE;
-    
-    /* Add a new block item to the state */
-    new_definition = malloc(sizeof(struct iman_reference_source_definition));
-    memset(new_definition, 0, sizeof(struct iman_reference_source_definition));
-    
-    *state->refsource->tail = new_definition;
-    state->refsource->tail = &new_definition->next_definition;
-    state->refsource->count++;
-    
-    state->active_definition = new_definition;
-    
-    if (state->position.tab_depth != 0) {
-        fprintf(stderr, "Error (L%u:C%u): this shouldn't be indented. A definition block must begin with an unintented term declaration.\n",
-            state->position.line,
-            state->position.column + 1
-        );
-        
-        state->status = IMAN_PARSER_STATUS_ERROR;
-        return IMAN_FALSE;
-    }
-    
-    do {
-        if (iman_parser_consume_term_declaration(state) != IMAN_TRUE)
-            return IMAN_FALSE;
-        
-        if (iman_parser_read_line(state) != IMAN_TRUE) {
-            if (state->status == IMAN_PARSER_STATUS_SUCCESS) {
-                fprintf(stderr, "Error (L%u:C%u): expected either a term declaration or a block definition.\n",
-                        state->position.line,
-                        state->position.column + 1
-                );
-                
-                state->status = IMAN_PARSER_STATUS_ERROR;
-            }
-            
-            return IMAN_FALSE;
-        }
-        
-    } while(state->position.tab_depth == 0);
-    
-    /* TODO: Parse the block */
-    
-    do {
-        char * field_identifier = NULL;
-        
-        if (iman_parser_expect_identifier(state, &field_identifier) != IMAN_TRUE) {
-            fprintf(stderr, "Error (L%u:C%u): expected a block header; e.g. 'forms' or 'definition'\n",
-                    state->position.line,
-                    state->position.column + 1
-            );
-            
-            state->status = IMAN_PARSER_STATUS_ERROR;
-            return IMAN_FALSE;
-        }
-        
-        if (iman_parser_is_eol(state) == IMAN_FALSE) {
-            fprintf(stderr, "Error (L%u:C%u): expected a block header; e.g. 'forms' or 'definition' followed immediately by a new-line\n",
-                    state->position.line,
-                    state->position.column + 1
-            );
-            
-            state->status = IMAN_PARSER_STATUS_ERROR;
-            return IMAN_FALSE;
-        }
-        
-        /* TODO: parse field's contents */
-        
-        fprintf(state->options->output, "(L%u:C%u): Reached block field %s\n",
-                state->position.line,
-                state->position.column + 1,
-                field_identifier);
-        
-        
-        state->status = IMAN_PARSER_STATUS_ERROR;
-        return IMAN_FALSE;
-    } while(state->position.tab_depth == 1);
+int iman_parser_initialise(FILE *source, struct iman_parser *parser) {
+    memset(parser, 0, sizeof(*parser));
+    parser->lexer.source = source;
     
     return IMAN_TRUE;
 }
 
-static int iman_parser_read_line(struct iman_parser_state *state) {
-    int tabs, length;
+int iman_parser_read_block(struct iman_parser *parser) {
+    unsigned int term_count = 0;
     
-    if (fgets(line_buffer, sizeof(line_buffer), state->options->source) == NULL) {
-        state->current_line = NULL;
-        return IMAN_FALSE;
-    }
-    
-    state->position.line++;
-    state->position.column = 0;
-    
-    
-    /* Count the leading tabs */
-    for (tabs = 0; line_buffer[tabs] == '\t'; ++tabs)
-        ;
-    
-    state->position.tab_depth = tabs;
-    state->position.column = tabs;
-    state->current_line = line_buffer;
-    
-    /* Delete the trailing new-line */
-    for (length = tabs; line_buffer[length] != '\0'; ++length) {
-        if (line_buffer[length] == '\n') {
-            line_buffer[length] = '\0';
+    for (;; ++term_count) {
+        if (iman_parser_read_term(parser) != IMAN_TRUE) {
+            if (parser->status == IMAN_PARSER_STATUS_SUCCESS)
+                break;
             
-            state->line_length = length;
-            return IMAN_TRUE;
+            return IMAN_FALSE;
         }
     }
     
-    /* If we reached here the input line was longer than the maximum allowable */
-    fprintf(stderr, "Error: line %u of source exceeded the maximum allowable line length %d\n", 
-            state->position.line, 
-            IMAN_PARSER_BUFFER_SIZE
-    );
+    if (term_count == 0) {
+        printf("Error (L%u: C%u): expected at least one term definition but didn't get any.\n", parser->lexer.pos.line, parser->lexer.pos.column + 1);
+        
+        parser->status = IMAN_PARSER_STATUS_ERROR;
+        return IMAN_FALSE;
+    }
     
-    state->status = IMAN_PARSER_STATUS_ERROR;
+    for (;;) {
+        if (iman_parser_read_field(parser, 1) != IMAN_TRUE) {
+            if (parser->status == IMAN_PARSER_STATUS_SUCCESS)
+                break;
+            
+            return IMAN_FALSE;
+        }
+    }
+    
+    return IMAN_TRUE;
+}
+
+static int iman_parser_read_term(struct iman_parser *parser) {
+    char *definition_title = NULL;
+    unsigned int title_length = 0;
+    struct iman_reference_term_definition * new_def;
+    
+    if (iman_lexer_expect_line_start(&parser->lexer) != IMAN_TRUE) {
+        printf("Error (L%u: C%u): expected to start out on a new line but didn't.\n", parser->lexer.pos.line, parser->lexer.pos.column + 1);
+        
+        parser->status = IMAN_PARSER_STATUS_ERROR;
+        return IMAN_FALSE;
+    }
+    
+    if (iman_lexer_expect_indent(&parser->lexer, 0) != IMAN_TRUE) {
+        return IMAN_FALSE;
+    }
+    
+    new_def = malloc(sizeof(struct iman_reference_term_definition));
+    memset(new_def, 0, sizeof(struct iman_reference_term_definition));
+    
+    new_def->next = parser->block.terms;
+    parser->block.terms = new_def;
+    
+    do {
+        char *name = NULL;
+        
+        if (iman_lexer_expect_name(&parser->lexer, &name) != IMAN_TRUE) {
+            printf("Error (L%u: C%u): expected a name\n", parser->lexer.pos.line, parser->lexer.pos.column + 1);
+            
+            parser->status = IMAN_PARSER_STATUS_ERROR;
+            return IMAN_FALSE;
+        }
+        
+        printf("Name (L%u: C%u): %s\n", parser->lexer.pos.line, parser->lexer.pos.column + 1, name);
+        
+        if (parser->block.terms->name_count >= IMAN_REFERENCE_TERM_MAX_NAMES) {
+            printf("Error (L%u: C%u): attempted to add one too many term aliases, the maximum being %d. The offender is: %s.\n", 
+                   parser->lexer.pos.line, 
+                   parser->lexer.pos.column + 1, 
+                   parser->block.terms->name_count, 
+                   name
+            );
+            
+            free(name);
+            parser->status = IMAN_PARSER_STATUS_ERROR;
+            return IMAN_FALSE;
+        }
+        
+        parser->block.terms->names[parser->block.terms->name_count++] = name;
+        
+    } while(iman_lexer_accept_syntax(&parser->lexer, '/') != IMAN_FALSE);
+    
+    if (iman_lexer_accept_syntax(&parser->lexer, '=') != IMAN_TRUE) {
+        printf("Error (L%u: C%u): expected an equals sign (=) followed by the term definition\n", parser->lexer.pos.line, parser->lexer.pos.column + 1);
+        
+        parser->status = IMAN_PARSER_STATUS_ERROR;
+        return IMAN_FALSE;
+    }
+    
+    if (iman_lexer_consume_remaining(&parser->lexer, &definition_title, &title_length) != IMAN_TRUE) {
+        printf("Error (L%u: C%u): expected the term's definition title.\n", parser->lexer.pos.line, parser->lexer.pos.column + 1);
+        
+        parser->status = IMAN_PARSER_STATUS_ERROR;
+        return IMAN_FALSE;
+    }
+    
+    printf("Title (L%u: C%u): %s\n", parser->lexer.pos.line, parser->lexer.pos.column + 1,  definition_title);
+    
+    memcpy(parser->block.terms->title, definition_title, title_length);
+    
+    /* definition_title is a static allocation, no need to free it */
+    
+    return IMAN_TRUE;
+}
+
+static int iman_parser_read_field(struct iman_parser *parser, unsigned int depth) {
+    const struct iman_parser_field_handler *field_handler;
+    unsigned int name_length = 0;
+    char * name = NULL;
+    
+    if (iman_lexer_expect_line_start(&parser->lexer) != IMAN_TRUE) {
+        printf("Error (L%u: C%u): expected to start on a new line but didn't.\n", parser->lexer.pos.line, parser->lexer.pos.column + 1);
+        
+        parser->status = IMAN_PARSER_STATUS_ERROR;
+        return IMAN_FALSE;
+    }
+    
+    if (iman_lexer_expect_indent(&parser->lexer, depth) != IMAN_TRUE) {
+        return IMAN_FALSE;
+    }
+    
+    if (iman_lexer_expect_keyword(&parser->lexer, &name, &name_length) != IMAN_TRUE) {
+        printf("Error (L%u: C%u): expected a field name but didn't get it.\n", parser->lexer.pos.line, parser->lexer.pos.column + 1);
+        
+        parser->status = IMAN_PARSER_STATUS_ERROR;
+        return IMAN_FALSE;
+    }
+    
+    name[name_length] = '\0';
+    printf("Field name (L%u: C%u): %s\n", parser->lexer.pos.line, parser->lexer.pos.column + 1, name);
+    
+    for (field_handler = iman_major_field_handler_table; field_handler->name != NULL; ++field_handler) {
+        if (strcmp(field_handler->name, name) == 0) {
+            return field_handler->parse(parser, depth + 1);
+        }
+    }
+    
+    printf("Error (L%u: C%u): this field name (%s) isn't recognised.\n", parser->lexer.pos.line, parser->lexer.pos.column + 1, name);
+    
+    parser->status = IMAN_PARSER_STATUS_ERROR;
     return IMAN_FALSE;
 }
 
-static int iman_parser_consume_term_declaration(struct iman_parser_state *state) {
-    struct iman_reference_source_definition_name * new_name;
-    unsigned int title_length;
-    
-    /*
-     * <term>/<alias 1>/.../<alias n>=<title>
-     */
-    
-    new_name = malloc(sizeof(struct iman_reference_source_definition_name));
-    memset(new_name, 0, sizeof(struct iman_reference_source_definition_name));
-    
-    new_name->next_name = state->active_definition->names;
-    new_name->name_count = IMAN_REFERENCE_DEFAULT_NAME_SIZE;
-    new_name->names = malloc(sizeof(char *) * new_name->name_count);
-    state->active_definition->names = new_name;
-    
-    for(;;) {
-        char * identifier = NULL;
+static int iman_parser_handle_forms(struct iman_parser *parser, unsigned int depth) {
+    while(iman_lexer_expect_line_start(&parser->lexer) == IMAN_TRUE) {
+        char *line = NULL;
+        unsigned int line_length = 0;
         
-        if (iman_parser_expect_identifier(state, &identifier) != IMAN_TRUE) {
-            fprintf(stderr, "Error (L%u: C%u): expected a valid definition name.\n",
-                state->position.line,
-                state->position.column + 1
-            );
-            
-            state->status = IMAN_PARSER_STATUS_ERROR;
-            return IMAN_FALSE;
-        }
-        
-        iman_parse_reference_add_name(state->active_definition, identifier);
-        
-        if (iman_parser_accept_syntax(state, '/') == IMAN_TRUE) {
-            /* Definition alias */
-            
-            continue;
-        } else if (iman_parser_accept_syntax(state, '=') == IMAN_TRUE) {
-            /* Assign the title */
-            
+        if (iman_lexer_accept_indent(&parser->lexer, depth) != IMAN_TRUE)
             break;
-        }
         
-        fprintf(stderr, "Error (L%u, C%u): expected either a '/' for name aliases or an '=' to assign a title.\n",
-            state->position.line,
-            state->position.column + 1
-        );
-        
-        state->status = IMAN_PARSER_STATUS_ERROR;
-        return IMAN_FALSE;
-    }
-    
-    title_length = state->line_length - state->position.column;
-    /* The remainder of the string is the title */
-    new_name->title = malloc(sizeof(char) * (title_length + 1));
-    memcpy(new_name->title, &state->current_line[state->position.column], title_length);
-    
-    new_name->title[title_length] = '\0';
-    state->position.column += title_length;
-    
-    return IMAN_TRUE;
-}
-
-static int iman_parser_expect_identifier(struct iman_parser_state *state, char **identifier) {
-    unsigned int length, start_column = state->position.column;
-    char * ident_buffer;
-    
-    while(state->current_line[state->position.column] != '\0') {
-        char c = state->current_line[state->position.column];
-        
-        if ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9')) {
-            state->position.column++;
-            continue;
-        }
-        
-        break;
-    }
-    
-    if (start_column == state->position.column) {
-        return IMAN_FALSE;
-    }
-    
-    length = state->position.column - start_column;
-    ident_buffer = malloc(sizeof(char) * (length + 1));
-    memcpy(ident_buffer, &state->current_line[start_column], length);
-    
-    ident_buffer[length] = '\0';
-    *identifier = ident_buffer;
-    
-    return IMAN_TRUE;
-}
-
-static int iman_parser_accept_syntax(struct iman_parser_state *state, char syntax) {
-    while(state->current_line[state->position.column] != '\0') {
-        if (state->current_line[state->position.column] == ' ') {
-            state->position.column++;
-            continue;
-        }
-        
-        break;
-    }
-    
-    if (state->current_line[state->position.column] == syntax) {
-        state->position.column++;
-        return IMAN_TRUE;
-    }
-    
-    return IMAN_FALSE;
-}
-
-static void iman_parse_reference_add_name(struct iman_reference_source_definition *definition, char *name) {
-    struct iman_reference_source_definition_name * cur_name = definition->names;
-    unsigned int x, new_count;
-    char ** new_array;
-    
-    for(x = 0; x < cur_name->name_count; ++x) {
-        if (cur_name->names[x] == NULL) {
-            cur_name->names[x] = name;
+        if (iman_lexer_consume_remaining(&parser->lexer, &line, &line_length) != IMAN_TRUE) {
+            printf("Error (L%u: C%u): expected a line of text, with an indent depth of at least %d tabs.\n", parser->lexer.pos.line, parser->lexer.pos.column + 1, depth);
             
-            return;
+            parser->status = IMAN_PARSER_STATUS_ERROR;
+            return IMAN_FALSE;
         }
+        
+        printf("Form line (L%u: C%u): %s\n", parser->lexer.pos.line, parser->lexer.pos.column + 1, line);
     }
     
-    /* Realloc */
-    new_count = cur_name->name_count * 2;
-    new_array = malloc(sizeof(char *) * new_count);
-    memset(new_array, 0, sizeof(char *) * new_count);
-    
-    for(x = 0; x < cur_name->name_count; ++x) {
-        new_array[x] = cur_name->names[x];
+    return IMAN_TRUE;
+}
+
+static int iman_parser_handle_description(struct iman_parser *parser, unsigned int depth) {
+    if (parser->block.desc.buffer != NULL) {
+        printf("Error (L%u: C%u): redeclaration of the description.\n", parser->lexer.pos.line, parser->lexer.pos.column + 1);
+        
+        parser->status = IMAN_PARSER_STATUS_ERROR;
+        return IMAN_FALSE;
     }
     
-    new_array[x + 1] = name;
+    parser->block.desc.buffer = malloc(IMAN_REFERENCE_DESC_BASE_SIZE);
+    parser->block.desc.size = IMAN_REFERENCE_DESC_BASE_SIZE;
+    parser->block.desc.offset = 0;
+    memset(parser->block.desc.buffer, 0, IMAN_REFERENCE_DESC_BASE_SIZE);
     
-    free(cur_name->names);
+    while(iman_lexer_expect_line_start(&parser->lexer) == IMAN_TRUE) {
+        char *line = NULL;
+        unsigned int line_length = 0;
+        
+        if (iman_lexer_accept_indent(&parser->lexer, depth) != IMAN_TRUE)
+            break;
+        
+        if (iman_lexer_consume_remaining(&parser->lexer, &line, &line_length) != IMAN_TRUE) {
+            printf("Error (L%u: C%u): expected a line of text, with an indent depth of at least %d tabs.\n", parser->lexer.pos.line, parser->lexer.pos.column + 1, depth);
+            
+            parser->status = IMAN_PARSER_STATUS_ERROR;
+            return IMAN_FALSE;
+        }
+        
+        printf("Description line (L%u: C%u): %s\n", parser->lexer.pos.line, parser->lexer.pos.column + 1, line);
+        
+        /* The additional two bytes are for the newline and null terminator */
+        if ((parser->block.desc.offset + line_length + 1) > parser->block.desc.size) {
+            unsigned int new_size = parser->block.desc.size * 2;
+            char *new_block = malloc(new_size);
+            
+            memset(new_block, 0, new_size);
+            memcpy(new_block, parser->block.desc.buffer, parser->block.desc.offset);
+            
+            free(parser->block.desc.buffer);
+            
+            parser->block.desc.buffer = new_block;
+            parser->block.desc.size = new_size;
+        }
+        
+        memcpy(&parser->block.desc.buffer[parser->block.desc.offset], line, line_length);
+        
+        parser->block.desc.offset += line_length + 1;
+        parser->block.desc.buffer[parser->block.desc.offset - 1] = '\n';
+    }
     
-    cur_name->name_count = new_count;
-    cur_name->names = new_array;
-    return;
+    return IMAN_TRUE;
 }
 
-static int iman_parser_is_eol(struct iman_parser_state *state) {
-    return state->line_length > state->position.column ? IMAN_FALSE : IMAN_TRUE;
+static int iman_parser_handle_exceptions(struct iman_parser *parser, unsigned int depth) {
+    while(iman_lexer_expect_line_start(&parser->lexer) == IMAN_TRUE) {
+        char *line = NULL;
+        unsigned int line_length = 0;
+        
+        if (iman_lexer_accept_indent(&parser->lexer, depth) != IMAN_TRUE)
+            break;
+        
+        if (iman_lexer_consume_remaining(&parser->lexer, &line, &line_length) != IMAN_TRUE) {
+            printf("Error (L%u: C%u): expected a line of text, with an indent depth of at least %d tabs.\n", parser->lexer.pos.line, parser->lexer.pos.column + 1, depth);
+            
+            parser->status = IMAN_PARSER_STATUS_ERROR;
+            return IMAN_FALSE;
+        }
+        
+        printf("Exceptions line (L%u: C%u): %s\n", parser->lexer.pos.line, parser->lexer.pos.column + 1, line);
+    }
+    
+    return IMAN_TRUE;
 }
 
-static int iman_field_forms_handler(struct iman_parser_state *state) {
-    IMAN_UNUSED(state);
-    return IMAN_FALSE;
+static int iman_parser_handle_flags(struct iman_parser *parser, unsigned int depth) {
+    while(iman_lexer_expect_line_start(&parser->lexer) == IMAN_TRUE) {
+        char *line = NULL;
+        unsigned int line_length = 0;
+        
+        if (iman_lexer_accept_indent(&parser->lexer, depth) != IMAN_TRUE)
+            break;
+        
+        if (iman_lexer_consume_remaining(&parser->lexer, &line, &line_length) != IMAN_TRUE) {
+            printf("Error (L%u: C%u): expected a line of text, with an indent depth of at least %d tabs.\n", parser->lexer.pos.line, parser->lexer.pos.column + 1, depth);
+            
+            parser->status = IMAN_PARSER_STATUS_ERROR;
+            return IMAN_FALSE;
+        }
+        
+        printf("Flags line (L%u: C%u): %s\n", parser->lexer.pos.line, parser->lexer.pos.column + 1, line);
+    }
+    
+    return IMAN_TRUE;
 }
 
-static int iman_field_description_handler(struct iman_parser_state *state) {
-    IMAN_UNUSED(state);
-    return IMAN_FALSE;
+static int iman_parser_handle_operation(struct iman_parser *parser, unsigned int depth) {
+    while(iman_lexer_expect_line_start(&parser->lexer) == IMAN_TRUE) {
+        char *line = NULL;
+        unsigned int line_length = 0;
+        
+        if (iman_lexer_accept_indent(&parser->lexer, depth) != IMAN_TRUE)
+            break;
+        
+        if (iman_lexer_consume_remaining(&parser->lexer, &line, &line_length) != IMAN_TRUE) {
+            printf("Error (L%u: C%u): expected a line of text, with an indent depth of at least %d tabs.\n", parser->lexer.pos.line, parser->lexer.pos.column + 1, depth);
+            
+            parser->status = IMAN_PARSER_STATUS_ERROR;
+            return IMAN_FALSE;
+        }
+        
+        printf("Operation line (L%u: C%u): %s\n", parser->lexer.pos.line, parser->lexer.pos.column + 1, line);
+    }
+    
+    return IMAN_TRUE;
 }
 
-static int iman_field_exceptions_handler(struct iman_parser_state *state) {
-    IMAN_UNUSED(state);
-    return IMAN_FALSE;
-}
-
-static int iman_field_flags_handler(struct iman_parser_state *state) {
-    IMAN_UNUSED(state);
-    return IMAN_FALSE;
-}
-
-static int iman_field_operation_handler(struct iman_parser_state *state) {
-    IMAN_UNUSED(state);
-    return IMAN_FALSE;
-}
-
-static int iman_field_meta_handler(struct iman_parser_state *state) {
-    IMAN_UNUSED(state);
-    return IMAN_FALSE;
+static int iman_parser_handle_meta(struct iman_parser *parser, unsigned int depth) {
+    while(iman_lexer_expect_line_start(&parser->lexer) == IMAN_TRUE) {
+        char *line = NULL;
+        unsigned int line_length = 0;
+        
+        if (iman_lexer_accept_indent(&parser->lexer, depth) != IMAN_TRUE)
+            break;
+        
+        if (iman_lexer_consume_remaining(&parser->lexer, &line, &line_length) != IMAN_TRUE) {
+            printf("Error (L%u: C%u): expected a line of text, with an indent depth of at least %d tabs.\n", parser->lexer.pos.line, parser->lexer.pos.column + 1, depth);
+            
+            parser->status = IMAN_PARSER_STATUS_ERROR;
+            return IMAN_FALSE;
+        }
+        
+        printf("meta line (L%u: C%u): %s\n", parser->lexer.pos.line, parser->lexer.pos.column + 1, line);
+    }
+    
+    return IMAN_TRUE;
 }

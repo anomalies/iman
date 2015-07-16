@@ -8,6 +8,9 @@ add_executable(iman
     iman_options.h
     iman_options.c
     
+    parser/iman_lexer.h
+    parser/iman_lexer.c
+    
     parser/iman_parser.h
     parser/iman_parser.c
 )
