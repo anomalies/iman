@@ -5,6 +5,7 @@
 
 #include "../iman.h"
 #include "iman_lexer.h"
+#include "iman_reference.h"
 #include "iman_parser.h"
 
 #define IMAN_REFERENCE_DESC_BASE_SIZE 2048

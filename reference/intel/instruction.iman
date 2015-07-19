@@ -12791,7 +12791,7 @@ smsw=Store Machine Status Word
 	meta
 
 
-sqrtpd=Compute Square Roots of Packed Double-Precision Floating-Point Values 
+sqrtpd/vsqrtpd=Compute Square Roots of Packed Double-Precision Floating-Point Values 
 	forms
 
 	description
@@ -12805,7 +12805,7 @@ sqrtpd=Compute Square Roots of Packed Double-Precision Floating-Point Values
 	meta
 
 
-sqrtps=Compute Square Roots of Packed Single-Precision Floating-Point Values 
+sqrtps/vsqrtps=Compute Square Roots of Packed Single-Precision Floating-Point Values 
 	forms
 
 	description
@@ -12819,7 +12819,7 @@ sqrtps=Compute Square Roots of Packed Single-Precision Floating-Point Values
 	meta
 
 
-sqrtsd=Compute Square Root of Scalar Double-Precision Floating-Point Value
+sqrtsd/vsqrtsd=Compute Square Root of Scalar Double-Precision Floating-Point Value
 	forms
 
 	description
@@ -12833,7 +12833,7 @@ sqrtsd=Compute Square Root of Scalar Double-Precision Floating-Point Value
 	meta
 
 
-sqrtss=Compute Square Root of Scalar Single-Precision Floating-Point Value
+sqrtss/vsqrtss=Compute Square Root of Scalar Single-Precision Floating-Point Value
 	forms
 
 	description
