@@ -11,6 +11,11 @@ add_executable(iman
     parser/iman_lexer.h
     parser/iman_lexer.c
     
+    parser/iman_reference.h
+    
+    parser/iman_form_parser.h
+    parser/iman_form_parser.c
+    
     parser/iman_parser.h
     parser/iman_parser.c
 )
