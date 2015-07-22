@@ -1,6 +1,6 @@
 aaa=ASCII Adjust After Addition
 	forms
-		[ (aaa), (), (), ( r(al) ), ( 32; 16 ), (), (37), (ASCII adjust AL after addition) ]
+		[ (aaa), (), (), ( al ), ( 32; 16 ), (), (37), (ASCII adjust AL after addition) ]
 
 	description
 		Adjusts the sum of two unpacked BCD values to create an unpacked BCD result. The AL register is the implied
@@ -24,8 +24,8 @@ aaa=ASCII Adjust After Addition
 
 aad=ASCII Adjust AX Before Division 
 	forms
-		[ (aad), (),     (), ( r(ax) ), ( 32; 16 ), (), (D5 0A), (ASCII adjust AX before division) ]
-		[ (aad), ( i8 ), (), ( r(ax) ), ( 32; 16 ), (), (D5 ib), (Adjust AX before division to number base @0) ]
+		[ (aad), (),     (), ( ax ), ( 32; 16 ), (), (D5 0A), (ASCII adjust AX before division) ]
+		[ (aad), ( i8 ), (), ( ax ), ( 32; 16 ), (), (D5 ib), (Adjust AX before division to number base @0) ]
 
 	description
 		Adjusts two unpacked BCD digits (the least-significant digit in the AL register and the most-significant digit in the
@@ -56,8 +56,8 @@ aad=ASCII Adjust AX Before Division
 
 aam=ASCII Adjust AX After Multiply 
 	forms
-		[ (aam), (),     (), ( r(ax) ), ( 32; 16 ), (), (D4 0A), (ASCII adjust AX after multiply) ]
-		[ (aam), ( i8 ), (), ( r(ax) ), ( 32; 16 ), (), (D4 ib), (Adjust AX after multiply to number base imm8) ]
+		[ (aam), (),     (), ( ax ), ( 32; 16 ), (), (D4 0A), (ASCII adjust AX after multiply) ]
+		[ (aam), ( i8 ), (), ( ax ), ( 32; 16 ), (), (D4 ib), (Adjust AX after multiply to number base imm8) ]
 
 	description
 		Adjusts the result of the multiplication of two unpacked BCD values to create a pair of unpacked (base 10) BCD
@@ -85,7 +85,7 @@ aam=ASCII Adjust AX After Multiply
 
 aas=ASCII Adjust AL After Subtraction
 	forms
-		[ (aas), (), (), ( r(ax) ), ( 32; 16 ), (), (3F), (ASCII adjust AL after subtraction) ]
+		[ (aas), (), (), ( ax ), ( 32; 16 ), (), (3F), (ASCII adjust AL after subtraction) ]
 
 	description
 		Adjusts the result of the subtraction of two unpacked BCD values to create a unpacked BCD result. The AL register
@@ -111,10 +111,10 @@ aas=ASCII Adjust AL After Subtraction
 
 adc=Add with Carry 
 	forms
-		[ (adc), ( r(al), i8 ),   (8),  (), ( 64; 32; 16 ), (), (14 ib), (Add with carry @1 to @0) ]
-		[ (adc), ( r(ax), i16 ),  (16), (), ( 64; 32; 16 ), (), (15 iw), (Add with carry @1 to @0) ]
-		[ (adc), ( r(eax), i32 ), (32), (), ( 64; 32; 16 ), (), (15 id), (Add with carry @1 to @0) ]
-		[ (adc), ( r(rax), i32 ), (32), (), ( 64; ),        (), (REX.W + 15 id), (Add with carry @1, sign extended to 64-bits, to @0) ]
+		[ (adc), ( al, i8 ),   (8),  (), ( 64; 32; 16 ), (), (14 ib), (Add with carry @1 to @0) ]
+		[ (adc), ( ax, i16 ),  (16), (), ( 64; 32; 16 ), (), (15 iw), (Add with carry @1 to @0) ]
+		[ (adc), ( eax, i32 ), (32), (), ( 64; 32; 16 ), (), (15 id), (Add with carry @1 to @0) ]
+		[ (adc), ( rax, i32 ), (32), (), ( 64; ),        (), (REX.W + 15 id), (Add with carry @1, sign extended to 64-bits, to @0) ]
 		[ (adc), ( v8, i8 ),      (8),  (), ( 64; 32; 16 ), (), (80 /2 ib), (Add with carry @1 to @0) ]
 		[ (adc), ( v8, i8 ),      (8),  (), ( 64; ),        (), (REX + 80 /2 ib), (Add with carry @1 to @0) ]
 		[ (adc), ( v16, i16 ),    (16), (), ( 64; 32; 16 ), (), (81 /2 iw), (Add with carry @1 to @0) ]
@@ -164,8 +164,8 @@ adc=Add with Carry
 
 adcx=Unsigned Integer Addition of Two Operands with Carry Flag
 	forms
-		[ (adcx), ( r32, v32 ),   (32),  (), ( 64; 32; 16 ), (ADX), (66 0F 38 F6 /r),         (Unsigned addition of @0 with CF then adding @1 to that result, updating CF) ]
-		[ (adcx), ( r64, v64 ),   (64),  (), ( 64; ),        (ADX), (REX.w + 66 0F 38 F6 /r), (Unsigned addition of @0 with CF then adding @1 to that result, updating CF) ]
+		[ (adcx), ( r32, v32 ), (32),  (), ( 64; 32; 16 ), (ADX), (66 0F 38 F6 /r),         (Unsigned addition of @0 with CF then adding @1 to that result, updating CF) ]
+		[ (adcx), ( r64, v64 ), (64),  (), ( 64; ),        (ADX), (REX.w + 66 0F 38 F6 /r), (Unsigned addition of @0 with CF then adding @1 to that result, updating CF) ]
 
 	description
 		Performs an unsigned addition of the destination operand (first operand), the source operand (second operand)
@@ -421,8 +421,8 @@ addsubps/vaddsubps=Packed Single-FP Add/Subtract
 
 adox=Unsigned Integer Addition of Two Operands with Overflow Flag
 	forms
-		[ (adox), ( r32, v32 ),   (32),  (), ( 64; 32; 16 ), (ADX), (66 0F 38 F6 /r),         (Unsigned addition of @0 with OF then adding @1 to that result, updating OF) ]
-		[ (adox), ( r64, v64 ),   (64),  (), ( 64; ),        (ADX), (REX.w + 66 0F 38 F6 /r), (Unsigned addition of @0 with OF then adding @1 to that result, updating OF) ]
+		[ (adox), ( r32, v32 ), (32),  (), ( 64; 32; 16 ), (ADX), (66 0F 38 F6 /r),         (Unsigned addition of @0 with OF then adding @1 to that result, updating OF) ]
+		[ (adox), ( r64, v64 ), (64),  (), ( 64; ),        (ADX), (REX.w + 66 0F 38 F6 /r), (Unsigned addition of @0 with OF then adding @1 to that result, updating OF) ]
 
 	description
 		Performs an unsigned addition of the destination operand (first operand), the source operand (second operand)
@@ -453,8 +453,8 @@ adox=Unsigned Integer Addition of Two Operands with Overflow Flag
 
 aesdec/vaesdec=Perform One Round of an AES Decryption Flow 
 	forms
-		[ (aesdec),  ( r128, v128 ),         (128), (), ( 64; 32; ),  (AES),      (66 0F 38 DE /r),                (Perform one round of an AES decryption flow, using the Equivalent Inverse Cipher, operating on a 128-bit data (state) from @0 with a 128-bit round key from @1, storing the result in @0) ]
-		[ (vaesdec), ( r128, r128, v128 ),   (128), (), ( 64; 32; ),  (AES; AVX), (VEX.NDS.128.66.0F38.WIG DE /r), (Perform one round of an AES decryption flow, using the Equivalent Inverse Cipher, operating on a 128-bit data (state) from @0 with a 128-bit round key from @2, storing the result in @0) ]
+		[ (aesdec),  ( r128, v128 ),       (128), (), ( 64; 32; ),  (AES),      (66 0F 38 DE /r),                (Perform one round of an AES decryption flow, using the Equivalent Inverse Cipher, operating on a 128-bit data (state) from @0 with a 128-bit round key from @1, storing the result in @0) ]
+		[ (vaesdec), ( r128, r128, v128 ), (128), (), ( 64; 32; ),  (AES; AVX), (VEX.NDS.128.66.0F38.WIG DE /r), (Perform one round of an AES decryption flow, using the Equivalent Inverse Cipher, operating on a 128-bit data (state) from @0 with a 128-bit round key from @2, storing the result in @0) ]
 
 	description
 		This instruction performs a single round of the AES decryption flow using the Equivalent Inverse Cipher, with the
@@ -481,8 +481,8 @@ aesdec/vaesdec=Perform One Round of an AES Decryption Flow
 
 aesdeclast/vaesdeclast=Perform Last Round of an AES Decryption Flow 
 	forms
-		[ (aesdeclast),  ( r128, v128 ),         (128), (), ( 64; 32; ),  (AES),      (66 0F 38 DF /r),                (Perform the last round of an AES decryption flow, using the Equivalent Inverse Cipher, operating on a 128-bit data (state) from @0 with a 128-bit round key from @1, storing the result in @0) ]
-		[ (vaesdeclast), ( r128, r128, v128 ),   (128), (), ( 64; 32; ),  (AES; AVX), (VEX.NDS.128.66.0F38.WIG DF /r), (Perform the last round of an AES decryption flow, using the Equivalent Inverse Cipher, operating on a 128-bit data (state) from @1 with a 128-bit round key from @2; store the result in @0) ]
+		[ (aesdeclast),  ( r128, v128 ),       (128), (), ( 64; 32; ),  (AES),      (66 0F 38 DF /r),                (Perform the last round of an AES decryption flow, using the Equivalent Inverse Cipher, operating on a 128-bit data (state) from @0 with a 128-bit round key from @1, storing the result in @0) ]
+		[ (vaesdeclast), ( r128, r128, v128 ), (128), (), ( 64; 32; ),  (AES; AVX), (VEX.NDS.128.66.0F38.WIG DF /r), (Perform the last round of an AES decryption flow, using the Equivalent Inverse Cipher, operating on a 128-bit data (state) from @1 with a 128-bit round key from @2; store the result in @0) ]
 
 	description
 		This instruction performs the last round of the AES decryption flow using the Equivalent Inverse Cipher, with the
@@ -508,8 +508,8 @@ aesdeclast/vaesdeclast=Perform Last Round of an AES Decryption Flow
 
 aesenc/vaesenc=Perform One Round of an AES Encryption Flow 
 	forms
-		[ (aesenc),  ( r128, v128 ),         (128), (), ( 64; 32; ),  (AES),      (66 0F 38 DC /r),                (Perform one round of an AES encryption flow, operating on a 128-bit data (state) from @0 with a 128-bit round key from @1, storing the reslt in @0) ]
-		[ (vaesenc), ( r128, r128, v128 ),   (128), (), ( 64; 32; ),  (AES; AVX), (VEX.NDS.128.66.0F38.WIG DC /r), (Perform one round of an AES encryption flow, operating on a 128-bit data (state) from @0 with a 128-bit round key from @2, storing the reslt in @0) ]
+		[ (aesenc),  ( r128, v128 ),       (128), (), ( 64; 32; ),  (AES),      (66 0F 38 DC /r),                (Perform one round of an AES encryption flow, operating on a 128-bit data (state) from @0 with a 128-bit round key from @1, storing the reslt in @0) ]
+		[ (vaesenc), ( r128, r128, v128 ), (128), (), ( 64; 32; ),  (AES; AVX), (VEX.NDS.128.66.0F38.WIG DC /r), (Perform one round of an AES encryption flow, operating on a 128-bit data (state) from @0 with a 128-bit round key from @2, storing the reslt in @0) ]
 
 	description
 		This instruction performs a single round of an AES encryption flow using a round key from the second source
@@ -535,8 +535,8 @@ aesenc/vaesenc=Perform One Round of an AES Encryption Flow
 
 aesenclast/vaesenclast=Perform Last Round of an AES Encryption Flow
 	forms
-		[ (aesenclast),  ( r128, v128 ),         (128), (), ( 64; 32; ),  (AES),      (66 0F 38 DD /r),                (Perform the last round of an AES encryption flow, operating on a 128-bit data (state) from @0 with a 128-bit round key from @1, storing the result in @0) ]
-		[ (vaesenclast), ( r128, r128, v128 ),   (128), (), ( 64; 32; ),  (AES; AVX), (VEX.NDS.128.66.0F38.WIG DD /r), (Perform the last round of an AES encryption flow, operating on a 128-bit data (state) from @0 with a 128-bit round key from @2, storing the result in @0) ]
+		[ (aesenclast),  ( r128, v128 ),       (128), (), ( 64; 32; ),  (AES),      (66 0F 38 DD /r),                (Perform the last round of an AES encryption flow, operating on a 128-bit data (state) from @0 with a 128-bit round key from @1, storing the result in @0) ]
+		[ (vaesenclast), ( r128, r128, v128 ), (128), (), ( 64; 32; ),  (AES; AVX), (VEX.NDS.128.66.0F38.WIG DD /r), (Perform the last round of an AES encryption flow, operating on a 128-bit data (state) from @0 with a 128-bit round key from @2, storing the result in @0) ]
 
 	description
 		This instruction performs the last round of an AES encryption flow using a round key from the second source
@@ -561,8 +561,8 @@ aesenclast/vaesenclast=Perform Last Round of an AES Encryption Flow
 
 aesimc/vaesimc=Perform the AES InvMixColumn Transformation
 	forms
-		[ (aesimc),  ( r128,  v128 ),   (128), (), ( 64; 32; ),  (AES),      (66 0F 38 DB /r),                (Perform the InvMixColumn transformation on a 128-bit round key from @1 and store the result in @0) ]
-		[ (vaesimc), ( r128,  v128 ),   (128), (), ( 64; 32; ),  (AES; AVX), (VEX.NDS.128.66.0F38.WIG DB /r), (Perform the InvMixColumn transformation on a 128-bit round key from @1 and store the result in @0) ]
+		[ (aesimc),  ( r128,  v128 ), (128), (), ( 64; 32; ),  (AES),      (66 0F 38 DB /r),                (Perform the InvMixColumn transformation on a 128-bit round key from @1 and store the result in @0) ]
+		[ (vaesimc), ( r128,  v128 ), (128), (), ( 64; 32; ),  (AES; AVX), (VEX.NDS.128.66.0F38.WIG DB /r), (Perform the InvMixColumn transformation on a 128-bit round key from @1 and store the result in @0) ]
 
 	description
 		Perform the InvMixColumns transformation on the source operand and store the result in the destination operand.
@@ -585,8 +585,8 @@ aesimc/vaesimc=Perform the AES InvMixColumn Transformation
 
 aeskeygenassist/vaeskeygenassist=AES Round Key Generation Assist
 	forms
-		[ (aeskeygenassist),  ( r128,  v128, i8 ),    (128), (), ( 64; 32; ),  (AES),      (66 0F 38 DF /r),                (Assist in AES round key generation using an 8-bit Round Constant (RCON) specified in @2, operating on 128 bits of data specified in @1 and stores the result in @0) ]
-		[ (vaeskeygenassist), ( r128,  v128, i8 ),    (128), (), ( 64; 32; ),  (AES; AVX), (VEX.NDS.128.66.0F38.WIG DF /r), (Assist in AES round key generation using an 8-bit Round Constant (RCON) specified in @2, operating on 128 bits of data specified in @1 and stores the result in @0) ]
+		[ (aeskeygenassist),  ( r128,  v128, i8 ), (128), (), ( 64; 32; ),  (AES),      (66 0F 38 DF /r),                (Assist in AES round key generation using an 8-bit Round Constant (RCON) specified in @2, operating on 128 bits of data specified in @1 and stores the result in @0) ]
+		[ (vaeskeygenassist), ( r128,  v128, i8 ), (128), (), ( 64; 32; ),  (AES; AVX), (VEX.NDS.128.66.0F38.WIG DF /r), (Assist in AES round key generation using an 8-bit Round Constant (RCON) specified in @2, operating on 128 bits of data specified in @1 and stores the result in @0) ]
 
 	description
 		Assist in expanding the AES cipher key, by computing steps towards generating a round key for encryption, using
@@ -610,10 +610,10 @@ aeskeygenassist/vaeskeygenassist=AES Round Key Generation Assist
 
 and=Logical AND 
 	forms
-		[ (and), ( r(al), i8 ),   (8),  (), ( 64; 32; 16 ), (), (24 ib),            (@0 AND @1) ]
-		[ (and), ( r(ax), i16 ),  (16), (), ( 64; 32; 16 ), (), (25 iw),            (@0 AND @1) ]
-		[ (and), ( r(eax), i32 ), (32), (), ( 64; 32; 16 ), (), (25 id),            (@0 AND @1) ]
-		[ (and), ( r(rax), i32 ), (32), (), ( 64; ),        (), (REX.W + 25 id),    (@0 AND @1 sign-extended to 64-bits) ]
+		[ (and), ( al, i8 ),   (8),  (), ( 64; 32; 16 ), (), (24 ib),            (@0 AND @1) ]
+		[ (and), ( ax, i16 ),  (16), (), ( 64; 32; 16 ), (), (25 iw),            (@0 AND @1) ]
+		[ (and), ( eax, i32 ), (32), (), ( 64; 32; 16 ), (), (25 id),            (@0 AND @1) ]
+		[ (and), ( rax, i32 ), (32), (), ( 64; ),        (), (REX.W + 25 id),    (@0 AND @1 sign-extended to 64-bits) ]
 		[ (and), ( v8, i8 ),      (8),  (), ( 64; 32; 16 ), (), (80 /4 ib),         (@0 AND @1) ]
 		[ (and), ( v8, i8 ),      (8),  (), ( 64; ),        (), (REX + 80 /4 ib),   (@0 AND @1) ]
 		[ (and), ( v16, i16 ),    (16), (), ( 64; 32; 16 ), (), (81 /4 iw),         (@0 AND @1) ]
