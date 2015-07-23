@@ -71,4 +71,6 @@ struct iman_reference_block {
     struct iman_reference_form_definition *forms;
 };
 
+void iman_reference_block_release(struct iman_reference_block *block);
+
 #endif

@@ -37,11 +37,28 @@ static const struct iman_parser_field_handler iman_major_field_handler_table[] =
     { NULL, NULL }
 };
 
-int iman_parser_initialise(FILE *source, struct iman_parser *parser) {
+int iman_parser_initialise(struct iman_parser *parser, const char *filename) {
     memset(parser, 0, sizeof(*parser));
-    parser->lexer.source = source;
+    
+    parser->lexer.source = fopen(filename, "rb");
+    
+    if (parser->lexer.source == NULL)
+        return IMAN_FALSE;
     
     return IMAN_TRUE;
+}
+
+void iman_parser_release(struct iman_parser *parser) {
+    if (parser->lexer.source != NULL) {
+        fclose(parser->lexer.source);
+        parser->lexer.source = NULL;
+    }
+    
+    return;
+}
+
+int iman_parser_is_eof(struct iman_parser *parser) {
+    return feof(parser->lexer.source) ? IMAN_TRUE : IMAN_FALSE;
 }
 
 int iman_parser_read_block(struct iman_parser *parser) {
@@ -63,7 +80,7 @@ int iman_parser_read_block(struct iman_parser *parser) {
         return IMAN_FALSE;
     }
     
-    for (;;) {
+    while(iman_parser_is_eof(parser) == IMAN_FALSE) {
         if (iman_parser_read_field(parser, 1) != IMAN_TRUE) {
             if (parser->status == IMAN_PARSER_STATUS_SUCCESS)
                 break;

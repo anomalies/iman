@@ -1131,7 +1131,6 @@ bswap=Byte Swap
 		compatibility with this instruction, software should include functionally equivalent code for execution on Intel
 		processors earlier than the Intel486 processor family.
 
-
 	exceptions
 
 	flags
@@ -1297,7 +1296,7 @@ bzhi=Zero High Bits Starting with Specified Bit Position
 		operand (the third operand). The INDEX is specified by bits 7:0 of the second source operand. The INDEX value is
 		saturated at the value of OperandSize -1. CF is set, if the number contained in the 8 low bits of the third operand
 		is greater than OperandSize -1.
-
+		
 		This instruction is not supported in real mode and virtual-8086 mode. The operand size is always 32 bits if not in
 		64-bit mode. In 64-bit mode operand size 64 requires VEX.W1. VEX.W1 is ignored in non-64-bit modes. An
 		attempt to execute this instruction with VEX.L not equal to 0 will cause #UD.
@@ -1442,7 +1441,7 @@ call=Call Procedure
 			
 			Note that a CALL instruction can not be used to cause a task switch in compatibility mode since task switches are
 			not supported in IA-32e mode.
-
+			
 			In compatibility mode, the processor always uses the segment selector part of the far address to access the corre-
 			sponding descriptor in the GDT or LDT. The descriptor type (code segment, call gate) and access rights determine
 			the type of call operation to be performed.
@@ -1941,7 +1940,6 @@ cmpsd/vcmpsd=Compare Scalar Double-Precision Floating-Point Values
 			Compilers should treat reserved Imm8 values as illegal syntax. 
 			Alternately, intrinsics can map the pseudo-ops to pre-defined constants to support a simpler intrinsic interface.
 
-
 	exceptions
 
 	flags
@@ -2354,7 +2352,7 @@ cvtpi2pd=Convert Packed Dword Integers to Packed Double-Precision FP Values
 		precision floating-point values in the destination operand (first operand).
 		The source operand can be an MMX technology register or a 64-bit memory location. The destination operand is an
 		XMM register. In addition, depending on the operand configuration:
-
+		
 		- For operands xmm, mm: the instruction causes a transition from x87 FPU to MMX technology operation (that
 		is, the x87 FPU top-of-stack pointer is set to 0 and the x87 FPU tag word is set to all 0s [valid]). If this
 		instruction is executed while an x87 FPU floating-point exception is pending, the exception is handled before
@@ -3674,7 +3672,6 @@ ficom/ficomp=Compare Integer
 		marks the ST(0) register empty and increments the stack pointer (TOP) by 1.
 		
 		This instruction's operation is the same in non-64-bit modes and 64-bit mode.
-
 
 	exceptions
 
@@ -5167,7 +5164,7 @@ insertps/vinsertps=Insert Packed Single Precision Floating-Point Value
 	meta
 
 
-int n/into/int 3=Call to Interrupt Procedure 
+int/into=Call to Interrupt Procedure 
 	forms
 
 	description
@@ -8184,7 +8181,7 @@ nop=No Operation
 		
 		The memory operand form of the instruction allows software to create a byte sequence of "no operation" as one
 		instruction.
-	
+
 	exceptions
 
 	flags
@@ -10711,7 +10708,7 @@ pshufd/vpshufd=Shuffle Packed Doublewords
 		
 		Note that this instruction permits a doubleword in the source operand to be copied to more than one doubleword
 		location in the destination operand.
-
+		
 		The source operand can be an XMM register or a 128-bit memory location. The destination operand is an XMM
 		register. The order operand is an 8-bit immediate. Note that this instruction permits a doubleword in the source
 		operand to be copied to more than one doubleword location in the destination operand.
@@ -14082,5 +14079,3 @@ xtest=Test If In Transactional Execution
 	operation
 
 	meta
-
-

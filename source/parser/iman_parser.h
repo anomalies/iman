@@ -19,7 +19,11 @@ struct iman_parser {
     struct iman_reference_block block;
 };
 
-int iman_parser_initialise(FILE *source, struct iman_parser *parser);
+int iman_parser_initialise(struct iman_parser *parser, const char *filename);
+
+void iman_parser_release(struct iman_parser *parser);
+
+int iman_parser_is_eof(struct iman_parser *parser);
 
 int iman_parser_read_block(struct iman_parser *parser);
 

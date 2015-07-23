@@ -5,6 +5,8 @@
 
 #include "iman.h"
 #include "iman_options.h"
+#include "parser/iman_lexer.h"
+#include "parser/iman_reference.h"
 #include "parser/iman_parser.h"
 
 int main(int argc, char **argv) 
